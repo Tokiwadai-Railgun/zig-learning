@@ -68,9 +68,9 @@ pub const Base64 = struct {
             // transformed from __aHi__ to __YUhp__
             if (count == 3) {
                 out[iout] = self._char_at(input[0] >> 2);
-                out[iout + 1] = self._char_at(((0b00000011 & input[0]) << 4) + ((0b11110000 & input[1]) >> 4));
-                out[iout + 2] = self._char_at(((0b00001111 & input[1]) << 2) + ((0b11000000 & input[2]) >> 6));
-                out[iout + 3] = self._char_at((0b00111111 & input[2]));
+                out[iout + 1] = self._char_at(((0b00000011 & buf[0]) << 4) + ((0b11110000 & buf[1]) >> 4));
+                out[iout + 2] = self._char_at(((0b00001111 & buf[1]) << 2) + ((0b11000000 & buf[2]) >> 6));
+                out[iout + 3] = self._char_at((0b00111111 & buf[2]));
 
                 iout += 4;
                 count = 0;
@@ -88,9 +88,9 @@ pub const Base64 = struct {
             //
             // transformed from __aH__ to __YUg=__
 
-            out[iout] = self._char_at(input[0] >> 2);
-            out[iout + 1] = self._char_at(((0b00000011 & input[0]) << 4) + ((0b11110000 & input[1]) >> 4));
-            out[iout + 2] = self._char_at((0b00001111 & input[1]) << 2);
+            out[iout] = self._char_at(buf[0] >> 2);
+            out[iout + 1] = self._char_at(((0b00000011 & buf[0]) << 4) + ((0b11110000 & buf[1]) >> 4));
+            out[iout + 2] = self._char_at((0b00001111 & buf[1]) << 2);
             out[iout + 3] = '=';
             iout += 4;
         }
@@ -109,6 +109,60 @@ pub const Base64 = struct {
             out[iout + 1] = self._char_at((0b00000011 & input[0]) << 4);
             out[iout + 2] = '=';
             out[iout + 3] = '=';
+        }
+
+        return out;
+    }
+
+    fn _char_index(self: Base64, char: u8) u8 {
+        if (char == '=')
+            return 64;
+
+        var i: u8 = 0;
+        var output_index: u8 = 0;
+
+        while (i < 64) : (i += 1) {
+            if (self._char_at(i) == char)
+                break;
+            output_index += 1;
+        }
+
+        return output_index;
+    }
+
+    pub fn decode(self: Base64, allocator: std.mem.Allocator, input: []const u8) ![]u8 {
+        const output_size = try _calc_decode_length(input);
+        const out = try allocator.alloc(u8, output_size);
+        var count: u8 = 0;
+        var iout: usize = 0;
+        var buffer = [4]u8{0, 0, 0, 0};
+
+        for (0..input.len) |i| {
+            buffer[count] = self._char_index(input[i]);
+            count += 1;
+
+            if (count == 4) {
+                // Perfect 3 bytes window
+                //  Y           U           h           p
+                //  24          20          33          41
+                //  ..011000    ..010100    ..100001    ..101001
+                //  01100001    01001000    01101001
+                //  95          772         105
+                //  a           H           i
+                //
+                // transformed from __aHi__ to __YUhp__
+
+                out[iout] = (buffer[0] << 2) + (buffer[1] >> 4);
+                if (buffer[2] != 64) {
+                    out[iout + 1] = (buffer[1] << 4) + (buffer[2] >> 2);
+                }
+                if (buffer[3] != 64) {
+                    out[iout + 2] = (buffer[2] << 6) + buffer[3];
+                }
+
+                iout += 3;
+                count = 0;
+            }
         }
 
         return out;
