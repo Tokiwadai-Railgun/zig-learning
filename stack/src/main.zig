@@ -1,4 +1,5 @@
 const std = @import("std");
+const Stack = @import("stack.zig");
 
 const U32Stack = struct {
     capacity: usize,
@@ -16,14 +17,14 @@ const U32Stack = struct {
         };
     }
 
-    fn push(self: *U32Stack, allocator: std.mem.Allocator, elem: u32) !void {
+    fn push(self: *U32Stack, elem: u32) !void {
         // WARNING: Function arguments are constants, therefore passing an argument here is the necessary tool
         if (self.capacity == self.size) {
-            var new_array = try allocator.alloc(u32, self.capacity * 2);
+            var new_array = try self.allocator.alloc(u32, self.capacity * 2);
             @memcpy(new_array[0..self.capacity], self.array);
             self.capacity *= 2;
 
-            allocator.free(self.array);
+            self.allocator.free(self.array);
             self.array = new_array[0..];
         }
 
@@ -42,10 +43,10 @@ const U32Stack = struct {
         }
     }
 
-    pub fn deinit(self: *U32Stack, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *U32Stack) void {
         // useful function, especially whne you do not know what the object is made of. 
         // Will always exists in custom structs requiring an allocator to be init
-        allocator.free(self.array);
+        self.allocator.free(self.array);
     }
 };
 
