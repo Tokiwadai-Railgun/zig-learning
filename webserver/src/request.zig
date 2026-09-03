@@ -4,6 +4,9 @@ const Map = std.static_string_map.StaticStringMap;
 
 pub const Method = enum { 
     GET,
+    POST,
+    PUT,
+    DELETE,
 
     pub fn init(text: []const u8) !Method {
         return MethodMap.get(text).?;
@@ -23,11 +26,25 @@ pub const Method = enum {
         switch (self) {
             .GET => {
                 std.debug.print("GET\n", .{});
+            },
+            .POST => {
+                std.debug.print("POST\n", .{});
+            },
+            .PUT => {
+                std.debug.print("PUT\n", .{});
+            },
+            .DELETE => {
+                std.debug.print("DELETE\n", .{});
             }
         }
     }
 };
-const MethodMap = Map(Method).initComptime(.{ .{ "GET", Method.GET } });
+const MethodMap = Map(Method).initComptime(.{ .{ "GET", Method.GET }, .{ "PUT", Method.PUT }, .{"POST", Method.POST }, .{"DELETE", Method.DELETE} });
+  
+pub const Header = struct {
+    name: []const u8,
+    value: []const u8
+};
 
 pub const Request = struct {
     method: Method,
@@ -42,6 +59,10 @@ pub const Request = struct {
             .version = version,
             .uri = uri
         };
+    }
+    
+    pub fn deinit(self: Request) void {
+        _ = self;
     }
 
     pub fn parse_request(req: []const u8) !Request {
@@ -67,7 +88,7 @@ pub const Request = struct {
     }
 };
 
-pub fn read_request(io: std.Io, stream: Stream, buffer: []u8) !void {
+pub fn read_request(io: std.Io, stream: *Stream, buffer: []u8) !void {
     var temp_buffer: [1024]u8 = undefined;
     var reader = stream.reader(io, &temp_buffer);
     const interface = &reader.interface;
